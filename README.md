@@ -40,21 +40,17 @@ Mal Track is a Python-based tool designed to detect, track, and kill malicious p
 - Python 3.x
 - Required Python packages:
 
-  ```sh
-  pip install psutil requests tqdm `
+  `pip install psutil requests tqdm`
 
 ### Running the Program
 
 1. **Clone the Repository**:
 
-    Copy code
+    `git clone https://github.com/yourusername/mal_track.git`
 
-    `git clone https://github.com/yourusername/mal_track.git
-    cd mal_track`
+    `cd mal_track`
 
 2. **Run the Script**:
-
-    Copy code
 
     `python mal_track.py`
 
