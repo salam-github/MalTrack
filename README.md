@@ -22,16 +22,16 @@ Mal Track is a Python-based tool designed to detect, track, and kill malicious p
 
 1. **Detection**:
 
-- **Known Malicious Files**: Uses a local database of known malicious file hashes to identify malicious processes.
-- **Heuristic Checks**: Performs heuristic checks based on file names and paths to identify suspicious behavior.
+    - **Known Malicious Files**: Uses a local database of known malicious file hashes to identify malicious processes.
+    - **Heuristic Checks**: Performs heuristic checks based on file names and paths to identify suspicious behavior.
 
 2. **Tracking**:
 
-- Monitors active network connections of suspicious processes to detect potentially malicious IP addresses.
+    - Monitors active network connections of suspicious processes to detect potentially malicious IP addresses.
 
 3. **Termination**:
 
-- Provides an option to terminate identified malicious processes and remove them from startup.
+    - Provides an option to terminate identified malicious processes and remove them from startup.
 
 ## How to Run
 
