@@ -1,4 +1,4 @@
-`# Mal Track
+# Mal Track
 
 "Even the lion has to defend himself against flies."
 
