@@ -1,7 +1,7 @@
 from database import update_local_database_from_csv, load_local_database
-from processes import detect_suspicious_processes, kill_malware_process
+from processes import detect_suspicious_processes, kill_malware_process, monitor_new_processes
 from snapshot import take_system_snapshot, check_integrity
-from network import capture_packets, get_suspicious_ips
+from network import capture_packets, extract_ips_from_packets
 from registry import remove_from_startup
 
 def scan_for_malware(progress_callback=None, scan_type='quick'):
@@ -22,12 +22,6 @@ def scan_for_malware(progress_callback=None, scan_type='quick'):
                 results.append(f"Killed malware process: {name} (PID: {pid})")
         else:
             results.append(f"Suspicious process: {name} (PID: {pid}) requires user action.")
-    suspicious_pids = [p['pid'] for p in suspicious_processes]
-    suspicious_ips = get_suspicious_ips(suspicious_pids)
-    if suspicious_ips:
-        results.append(f"Attacker's IP addresses: {', '.join(suspicious_ips)}")
-    else:
-        results.append("No suspicious IP addresses detected.")
     return "\n".join(results), suspicious_processes
 
 def update_database():
@@ -44,10 +38,13 @@ def check_system_integrity(snapshot_file):
     return check_integrity(snapshot_file)
 
 def monitor_processes(duration):
-    return monitor_processes(duration)
+    new_process_details = monitor_new_processes(duration)
+    return "\n".join(new_process_details)
 
 def capture_network_traffic(duration, flt):
-    if capture_packets(duration, flt):
-        return "Connections snapshot completed."
-    else:
-        return "Connections snapshot failed."
+    packets = capture_packets(duration, flt)
+    ips = extract_ips_from_packets(packets)
+    report = "Network Traffic Report:\n\n"
+    report += "Outgoing IPs:\n" + "\n".join(ips["outgoing"]) + "\n\n"
+    report += "Incoming IPs:\n" + "\n".join(ips["incoming"]) + "\n"
+    return report

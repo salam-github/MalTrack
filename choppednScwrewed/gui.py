@@ -7,7 +7,8 @@ import time
 import ctypes
 import sys
 from main import scan_for_malware, update_database, take_snapshot, check_system_integrity, monitor_processes, capture_network_traffic, kill_malware_process
-from database import add_to_whitelist, load_whitelist, save_whitelist
+from database import add_to_whitelist, load_whitelist, save_whitelist, update_local_database_from_csv
+from processes import delete_registry_keys_associated_with_process  # Import the function from processes
 from registry import remove_from_startup
 
 suspicious_processes = []
@@ -33,7 +34,8 @@ def run_in_thread(func, process_name, *args):
         start_time = time.time()
         result = func(*args)
         elapsed_time = time.time() - start_time
-        output_text.insert(tk.END, result + "\n", "regular")
+        if result:
+            output_text.insert(tk.END, result + "\n", "regular")
         output_text.see(tk.END)
         status_label.config(text=f"{process_name} completed in {elapsed_time:.2f} seconds")
 
@@ -108,7 +110,18 @@ def start_malware_scan(scan_type='quick'):
     thread.start()
 
 def update_database_gui():
-    run_in_thread(update_database, "Database update")
+    def progress_callback(current, total):
+        progress_bar['maximum'] = total
+        progress_bar['value'] = current
+        status_label.config(text=f"Updating database: {current} of {total} bytes downloaded")
+
+    def update_database_thread():
+        status_label.config(text="Starting database update...")
+        update_local_database_from_csv(progress_callback)
+        status_label.config(text="Database update completed")
+
+    thread = threading.Thread(target=update_database_thread)
+    thread.start()
 
 def take_snapshot_gui():
     full_check = messagebox.askyesno("Take Snapshot", "Perform full check including registry?")
@@ -126,15 +139,37 @@ def monitor_processes_gui():
         run_in_thread(monitor_processes, "Process monitoring", duration)
 
 def capture_network_traffic_gui():
-    duration = simpledialog.askinteger("Capture Network Traffic", "Enter the capture duration in seconds:")
-    if duration:
-        flt = simpledialog.askstring("Capture Network Traffic", "Enter the capture filter:")
-        if flt:
-            run_in_thread(capture_network_traffic, "Network traffic capture", duration, flt)
-        else:
-            messagebox.showerror("Capture Network Traffic", "Capture filter is required.")
-    else:
-        messagebox.showerror("Capture Network Traffic", "Duration is required.")
+    capture_window = tk.Toplevel(root)
+    capture_window.title("Capture Network Traffic")
+    capture_window.geometry("300x200")
+
+    duration_label = ttk.Label(capture_window, text="Duration (seconds):")
+    duration_label.pack(pady=5)
+    duration_entry = ttk.Entry(capture_window)
+    duration_entry.pack(pady=5)
+
+    filter_label = ttk.Label(capture_window, text="Filter:")
+    filter_label.pack(pady=5)
+    filter_entry = ttk.Entry(capture_window)
+    filter_entry.pack(pady=5)
+
+    def start_capture():
+        duration = int(duration_entry.get())
+        flt = filter_entry.get()
+        capture_window.destroy()
+        run_in_thread(capture_network_traffic, "Network traffic capture", duration, flt)
+
+    start_button = ttk.Button(capture_window, text="Start Capture", command=start_capture)
+    start_button.pack(pady=10)
+
+def show_network_report(report):
+    report_window = tk.Toplevel(root)
+    report_window.title("Network Traffic Report")
+    report_window.geometry("600x400")
+
+    report_text = scrolledtext.ScrolledText(report_window, wrap=tk.WORD, font=('Helvetica', 10))
+    report_text.pack(fill=tk.BOTH, expand=True)
+    report_text.insert(tk.END, report)
 
 def inspect_process():
     selected_item = treeview.selection()
@@ -153,21 +188,6 @@ def inspect_process():
     else:
         messagebox.showwarning("Inspect Process", "No process selected")
 
-def delete_registry_keys_associated_with_process(process_name):
-    """Delete registry keys associated with the given process name."""
-    try:
-        with open("registry_keys.log", "r") as log_file:
-            registry_keys = log_file.readlines()
-        for sub_key in registry_keys:
-            sub_key = sub_key.strip()
-            try:
-                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub_key)
-                print(f"Deleted registry key: {sub_key}")
-            except FileNotFoundError:
-                print(f"Registry key not found: {sub_key}")
-    except FileNotFoundError:
-        print("Registry keys log file not found.")
-
 def kill_selected_process():
     selected_item = treeview.selection()
     if selected_item:
@@ -177,7 +197,6 @@ def kill_selected_process():
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
                 treeview.delete(selected_item)
-                delete_registry_keys_associated_with_process(process_name)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
             else:
                 messagebox.showerror("Kill Process", f"Failed to kill process {process_name} (PID: {pid}).")
@@ -187,48 +206,68 @@ def kill_selected_process():
 def add_safe_hash_gui():
     file_path = filedialog.askopenfilename(title="Select File to Trust")
     if file_path:
-        process_name = simpledialog.askstring("Process Name", "Enter the process name for this file:")
-        if process_name:
-            add_to_whitelist(file_path, process_name)
-            messagebox.showinfo("Add Safe Hash", f"File {file_path} ({process_name}) added to safe list.")
-        else:
-            messagebox.showerror("Add Safe Hash", "Process name is required.")
+        add_to_whitelist(file_path)
+        messagebox.showinfo("Add Safe Hash", f"File {file_path} added to safe list.")
 
 def open_whitelist_manager():
     def delete_selected():
         selected_items = listbox.curselection()
         if selected_items:
             whitelist = load_whitelist()
-            for index in selected_items[::-1]:  # Reverse order to avoid issues when deleting multiple items
+            for index in selected_items:
                 item = listbox.get(index)
-                # Find the hash to delete from the dictionary
-                hash_to_delete = None
-                for hash, entry in whitelist.items():
-                    if entry['file_path'] == item:
-                        hash_to_delete = hash
-                        break
-                if hash_to_delete:
-                    del whitelist[hash_to_delete]
-                    listbox.delete(index)
+                # Reverse lookup the hash to delete from the dictionary
+                hash_to_delete = [k for k, v in whitelist.items() if v["file_path"] == item][0]
+                del whitelist[hash_to_delete]
+                listbox.delete(index)
             save_whitelist(whitelist)
             messagebox.showinfo("Whitelist Manager", "Selected items have been removed from the whitelist.")
         else:
             messagebox.showwarning("Whitelist Manager", "No item selected to remove.")
 
+    def search_whitelist(event):
+        search_term = search_entry.get().lower()
+        listbox.delete(0, tk.END)
+        whitelist = load_whitelist()
+        for entry in whitelist.values():
+            file_path = entry["file_path"]
+            process_name = entry["process_name"]
+            if search_term in file_path.lower() or search_term in process_name.lower():
+                listbox.insert(tk.END, f"{process_name} - {file_path}")
+
     whitelist_window = tk.Toplevel(root)
     whitelist_window.title("Whitelist Manager")
-    whitelist_window.geometry("500x400")
+    whitelist_window.geometry("600x600")
 
-    listbox = tk.Listbox(whitelist_window, selectmode=tk.MULTIPLE, width=80, height=20)
-    listbox.pack(pady=10)
+    search_frame = ttk.Frame(whitelist_window)
+    search_frame.pack(pady=10)
+
+    search_label = ttk.Label(search_frame, text="Search:")
+    search_label.pack(side=tk.LEFT, padx=5)
+
+    search_entry = ttk.Entry(search_frame)
+    search_entry.pack(side=tk.LEFT, padx=5)
+    search_entry.bind("<KeyRelease>", search_whitelist)
+
+    listbox_frame = ttk.Frame(whitelist_window)
+    listbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    listbox = tk.Listbox(listbox_frame, selectmode=tk.MULTIPLE, width=80, height=20)
+    listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(listbox_frame, orient="vertical", command=listbox.yview)
+    listbox.configure(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    button_frame = ttk.Frame(whitelist_window)
+    button_frame.pack(pady=10)
+
+    delete_button = ttk.Button(button_frame, text="Delete Selected", command=delete_selected)
+    delete_button.pack()
 
     whitelist = load_whitelist()
     for entry in whitelist.values():
-        display_text = f"{entry['process_name']} ({entry['file_path']})"
-        listbox.insert(tk.END, display_text)
-
-    delete_button = ttk.Button(whitelist_window, text="Delete Selected", command=delete_selected)
-    delete_button.pack(pady=5)
+        listbox.insert(tk.END, f"{entry['process_name']} - {entry['file_path']}")
 
 # Create the main window
 root = tk.Tk()

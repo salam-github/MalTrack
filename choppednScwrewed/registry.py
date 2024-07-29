@@ -68,6 +68,21 @@ def remove_from_startup(exe_path):
             # Delete the key if it is empty
             delete_empty_key(root_key, key)
 
+def delete_registry_keys_associated_with_process(process_name):
+    """Delete registry keys associated with the given process name."""
+    try:
+        with open("registry_keys.log", "r") as log_file:
+            registry_keys = log_file.readlines()
+        for sub_key in registry_keys:
+            sub_key = sub_key.strip()
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub_key)
+                print(f"Deleted registry key: {sub_key}")
+            except FileNotFoundError:
+                print(f"Registry key not found: {sub_key}")
+    except FileNotFoundError:
+        print("Registry keys log file not found.")
+
 def collect_registry():
     """Collect registry values."""
     config = load_config()

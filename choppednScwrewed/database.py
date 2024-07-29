@@ -1,3 +1,5 @@
+# database.py
+
 import json
 import os
 import requests
@@ -9,7 +11,7 @@ from pathlib import Path
 from config import DATABASE_FILE, CSV_URL
 from utils import calculate_file_hash
 
-WHITELIST_FILE = Path.home() / ".maltrack" / "whitelist.json"
+WHITELIST_FILE = os.path.join(os.getenv('APPDATA'), 'MalTrack', 'whitelist.json')
 
 def load_whitelist():
     """Load the whitelist of safe file hashes."""
@@ -20,16 +22,17 @@ def load_whitelist():
 
 def save_whitelist(hashes):
     """Save the whitelist of safe file hashes."""
+    os.makedirs(os.path.dirname(WHITELIST_FILE), exist_ok=True)
     with open(WHITELIST_FILE, 'w') as file:
-        json.dump(hashes, file)
+        json.dump(hashes, file, indent=4)
 
 def add_to_whitelist(file_path, process_name):
-    """Add a file's hash and process name to the whitelist."""
+    """Add a file's hash to the whitelist."""
     whitelist = load_whitelist()
     file_hash = calculate_file_hash(file_path)
     whitelist[file_hash] = {"file_path": file_path, "process_name": process_name}
     save_whitelist(whitelist)
-    print(f"Added {file_path} ({process_name}) to whitelist.")
+    print(f"Added {file_path} to whitelist.")
 
 def load_local_database():
     """Load the local database of known malicious hashes."""
@@ -43,7 +46,7 @@ def save_local_database(hashes):
     with open(DATABASE_FILE, 'w') as file:
         json.dump(list(hashes), file)
 
-def update_local_database_from_csv():
+def update_local_database_from_csv(progress_callback=None):
     """Fetch the latest malicious file hashes from MalwareBazaar CSV and update the local database."""
     response = requests.get(CSV_URL, stream=True)
     total_size = int(response.headers.get('content-length', 0))
@@ -54,6 +57,8 @@ def update_local_database_from_csv():
     for data in response.iter_content(block_size):
         progress_bar.update(len(data))
         zip_content.write(data)
+        if progress_callback:
+            progress_callback(progress_bar.n, total_size)
     progress_bar.close()
 
     if response.status_code == 200:
