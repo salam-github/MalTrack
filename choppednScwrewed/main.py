@@ -4,9 +4,10 @@ from snapshot import take_system_snapshot, check_integrity
 from network import capture_packets, get_suspicious_ips
 from registry import remove_from_startup
 
-def scan_for_malware(progress_callback=None):
+def scan_for_malware(progress_callback=None, scan_type='quick'):
+    quick_scan = scan_type == 'quick'
     local_hashes = load_local_database()
-    suspicious_processes = detect_suspicious_processes(local_hashes, progress_callback)
+    suspicious_processes = detect_suspicious_processes(local_hashes, progress_callback, quick_scan)
     results = []
     for process_info in suspicious_processes:
         pid = process_info['pid']

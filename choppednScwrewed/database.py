@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 import csv
 import zipfile
@@ -6,11 +7,33 @@ from io import BytesIO, TextIOWrapper
 from tqdm import tqdm
 from pathlib import Path
 from config import DATABASE_FILE, CSV_URL
-from hashing import calculate_file_hash
+from utils import calculate_file_hash
+
+WHITELIST_FILE = 'whitelist.json'
+
+def load_whitelist():
+    """Load the whitelist of safe file hashes."""
+    if os.path.exists(WHITELIST_FILE):
+        with open(WHITELIST_FILE, 'r') as file:
+            return set(json.load(file))
+    return set()
+
+def save_whitelist(hashes):
+    """Save the whitelist of safe file hashes."""
+    with open(WHITELIST_FILE, 'w') as file:
+        json.dump(list(hashes), file)
+
+def add_to_whitelist(file_path):
+    """Add a file's hash to the whitelist."""
+    whitelist = load_whitelist()
+    file_hash = calculate_file_hash(file_path)
+    whitelist.add(file_hash)
+    save_whitelist(whitelist)
+    print(f"Added {file_path} to whitelist.")
 
 def load_local_database():
     """Load the local database of known malicious hashes."""
-    if DATABASE_FILE.exists():
+    if os.path.exists(DATABASE_FILE):
         with open(DATABASE_FILE, 'r') as file:
             return set(json.load(file))
     return set()
