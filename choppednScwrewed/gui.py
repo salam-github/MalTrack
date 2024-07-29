@@ -1,11 +1,30 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog, scrolledtext, ttk
-from main import scan_for_malware, update_database, take_snapshot, check_system_integrity, monitor_processes, capture_network_traffic, kill_malware_process
-from database import add_to_whitelist
+import winreg
+import os
 import threading
 import time
+import ctypes
+import sys
+from main import scan_for_malware, update_database, take_snapshot, check_system_integrity, monitor_processes, capture_network_traffic, kill_malware_process
+from database import add_to_whitelist, load_whitelist, save_whitelist
+from registry import remove_from_startup
 
 suspicious_processes = []
+
+def is_admin():
+    """Check if the script is running with administrative privileges."""
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def elevate_privileges():
+    """Relaunch the script with elevated privileges."""
+    if not is_admin():
+        # Re-run the script with admin privileges
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        sys.exit(0)
 
 def run_in_thread(func, process_name, *args):
     """Run a function in a separate thread and handle the result in the main thread."""
@@ -134,17 +153,34 @@ def inspect_process():
     else:
         messagebox.showwarning("Inspect Process", "No process selected")
 
+def delete_registry_keys_associated_with_process(process_name):
+    """Delete registry keys associated with the given process name."""
+    try:
+        with open("registry_keys.log", "r") as log_file:
+            registry_keys = log_file.readlines()
+        for sub_key in registry_keys:
+            sub_key = sub_key.strip()
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub_key)
+                print(f"Deleted registry key: {sub_key}")
+            except FileNotFoundError:
+                print(f"Registry key not found: {sub_key}")
+    except FileNotFoundError:
+        print("Registry keys log file not found.")
+
 def kill_selected_process():
     selected_item = treeview.selection()
     if selected_item:
         process_info = treeview.item(selected_item, 'values')
         pid = int(process_info[0])
-        if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_info[1]} (PID: {pid})?"):
+        process_name = process_info[1]
+        if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
                 treeview.delete(selected_item)
-                messagebox.showinfo("Kill Process", f"Process {process_info[1]} (PID: {pid}) killed successfully.")
+                delete_registry_keys_associated_with_process(process_name)
+                messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
             else:
-                messagebox.showerror("Kill Process", f"Failed to kill process {process_info[1]} (PID: {pid}).")
+                messagebox.showerror("Kill Process", f"Failed to kill process {process_name} (PID: {pid}).")
     else:
         messagebox.showwarning("Kill Process", "No process selected")
 
@@ -153,6 +189,36 @@ def add_safe_hash_gui():
     if file_path:
         add_to_whitelist(file_path)
         messagebox.showinfo("Add Safe Hash", f"File {file_path} added to safe list.")
+
+def open_whitelist_manager():
+    def delete_selected():
+        selected_items = listbox.curselection()
+        if selected_items:
+            whitelist = load_whitelist()
+            for index in selected_items:
+                item = listbox.get(index)
+                # Reverse lookup the hash to delete from the dictionary
+                hash_to_delete = [k for k, v in whitelist.items() if v == item][0]
+                del whitelist[hash_to_delete]
+                listbox.delete(index)
+            save_whitelist(whitelist)
+            messagebox.showinfo("Whitelist Manager", "Selected items have been removed from the whitelist.")
+        else:
+            messagebox.showwarning("Whitelist Manager", "No item selected to remove.")
+
+    whitelist_window = tk.Toplevel(root)
+    whitelist_window.title("Whitelist Manager")
+    whitelist_window.geometry("400x300")
+
+    listbox = tk.Listbox(whitelist_window, selectmode=tk.MULTIPLE, width=50, height=15)
+    listbox.pack(pady=10)
+
+    whitelist = load_whitelist()
+    for file_path in whitelist.values():
+        listbox.insert(tk.END, file_path)
+
+    delete_button = ttk.Button(whitelist_window, text="Delete Selected", command=delete_selected)
+    delete_button.pack(pady=5)
 
 # Create the main window
 root = tk.Tk()
@@ -179,6 +245,7 @@ buttons = [
     ("Monitor Processes", monitor_processes_gui),
     ("Capture Traffic", capture_network_traffic_gui),
     ("Add to Safe List", add_safe_hash_gui),
+    ("Whitelist Manager", open_whitelist_manager),
 ]
 
 for text, command in buttons:
@@ -249,5 +316,6 @@ inspect_button.pack(side=tk.LEFT, padx=10, pady=10)
 kill_button = ttk.Button(action_frame, text="Kill Process", command=kill_selected_process)
 kill_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
-# Run the main loop
-root.mainloop()
+if __name__ == "__main__":
+    elevate_privileges()
+    root.mainloop()

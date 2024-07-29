@@ -3,10 +3,11 @@ import psutil
 import time
 from database import is_known_malicious, load_whitelist, add_to_whitelist
 from utils import calculate_file_hash  # Import the calculate_file_hash function
+from registry import remove_from_startup  # Import the remove_from_startup function
 
 def heuristic_check(file_path):
     """Perform basic heuristic checks on the file."""
-    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor', 'calc.exe', 'taskmgr.exe']
+    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor', 'calc.exe', 'taskmgr.exe', 'mal-sim.exe', 'mal-sim', 'mal-sim.dll', 'mal sim']
     for keyword in suspicious_keywords:
         if keyword in file_path.lower():
             return True
@@ -69,10 +70,17 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
     return suspicious_processes
 
 def kill_malware_process(pid):
-    """Kill the malware process."""
+    """Kill the malware process and remove associated registry keys."""
     try:
-        psutil.Process(pid).terminate()
+        process = psutil.Process(pid)
+        file_path = process.exe()  # Get the executable path before terminating the process
+        process.terminate()
+        process.wait()  # Wait for the process to be terminated
+
         print(f"Killed malware process with PID {pid}")
+
+        # Remove associated registry keys
+        remove_from_startup(file_path)
         return True
     except Exception as e:
         print(f"Failed to kill malware process: {e}")

@@ -15,19 +15,23 @@ def load_whitelist():
     """Load the whitelist of safe file hashes."""
     if os.path.exists(WHITELIST_FILE):
         with open(WHITELIST_FILE, 'r') as file:
-            return set(json.load(file))
-    return set()
+            data = json.load(file)
+            if isinstance(data, list):  # Old format
+                # Convert list to dictionary
+                return {hash: "" for hash in data}  # Assuming we don't have file paths in the old format
+            return data  # New format
+    return {}
 
-def save_whitelist(hashes):
+def save_whitelist(whitelist):
     """Save the whitelist of safe file hashes."""
     with open(WHITELIST_FILE, 'w') as file:
-        json.dump(list(hashes), file)
+        json.dump(whitelist, file)
 
 def add_to_whitelist(file_path):
     """Add a file's hash to the whitelist."""
     whitelist = load_whitelist()
     file_hash = calculate_file_hash(file_path)
-    whitelist.add(file_hash)
+    whitelist[file_hash] = file_path
     save_whitelist(whitelist)
     print(f"Added {file_path} to whitelist.")
 
