@@ -22,7 +22,7 @@ Features
 - **Process Termination**: Allows users to terminate malicious processes.
 - **Startup Management**: Removes malicious files from Windows startup programs.
 - **Snapshot**: Takes a snapshot of system files and registry keys for integrity checking.
-- **Integrity Check**: Compares current system state with a snapshot to detect changes.
+- **Integrity Check**: Compares the current system state with a snapshot to detect changes.
 - **Process Monitoring**: Monitors newly spawned processes.
 - **Network Traffic Capture**: Captures network traffic to identify suspicious connections.
 
@@ -60,30 +60,18 @@ How to Run
 
 - Required Python packages:
 
-    sh
-
-    Copy code
-
     `pip install psutil requests tqdm tkinter`
 
 ### Running the Program
 
 1. **Clone the Repository**:
 
-    sh
-
-    Copy code
-
-    `git clone https://github.com/yourusername/mal_track.git
-    cd mal_track`
+    `git clone https://github.com/salam-github/MalTrack.git
+    cd MalTrack`
 
 2. **Run the Script**:
 
-    sh
-
-    Copy code
-
-    `python gui.py`
+    `python elevate.py`
 
 3. **GUI Usage**:
 
@@ -144,18 +132,67 @@ Detailed Description of Features
 
 - **Function**: Captures network traffic to identify suspicious connections.
 - **How**:
-  - Uses `tshark` to capture packets based on user-defined filters and duration.
+  - Uses raw sockets to capture packets for a specified duration and filter.
 
 Managing Startup Programs in Windows
 ------------------------------------
 
-- **Windows Registry**: The program interacts with the Windows registry to manage startup programs.
-  - **Registry Keys**:
-    - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
-    - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`
-    - `HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
-    - `HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`
-- **Removing Startup Entries**: If a suspicious process is terminated, its associated startup entries are also removed from these registry keys.
+### Explanation
+
+The program interacts with the Windows registry to manage startup programs. It checks specific registry keys where programs are listed to start when Windows boots up. These keys include:
+
+- `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
+- `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`
+- `HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
+- `HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`
+
+### How It Works
+
+1. **Detecting Startup Entries**: When a process is flagged as malicious, the program checks these registry keys for any entries associated with the malicious process.
+2. **Removing Entries**: If such entries are found, they are deleted from the registry to prevent the malicious process from starting automatically on the next system boot.
+
+### Example
+
+If a process `mal-sim.exe` is detected and flagged as malicious, the program will:
+
+- Search through the mentioned registry keys for any entry that includes `mal-sim.exe`.
+- Delete these entries to remove `mal-sim.exe` from the startup programs.
+
+Getting the IP of the Attacker from the Malware
+-----------------------------------------------
+
+### Explanation
+
+The program can identify suspicious IP addresses by monitoring the network connections of processes flagged as malicious.
+
+### How It Works
+
+1. **Process Scanning**: When a process is detected as suspicious, the program retrieves all network connections associated with this process.
+2. **Extracting IPs**: It collects the remote IP addresses (IP addresses of the other end of the connection) from these connections.
+3. **Reporting**: These IP addresses are then reported as potentially malicious or suspicious, indicating where the flagged process is communicating.
+
+### Example
+
+If `mal-sim.exe` is flagged as suspicious, the program will:
+
+- Retrieve network connections of `mal-sim.exe`.
+- Collect the IP addresses from these connections.
+- Report these IP addresses as suspicious.
+
+How This Program Works
+----------------------
+
+### Step-by-Step Explanation
+
+1. **Elevate Privileges**: The program starts with elevated privileges to ensure it has the necessary permissions to scan and modify system settings.
+2. **GUI Interface**: The main GUI provides various functionalities like quick scan, full scan, database update, snapshot, etc.
+3. **Process Scanning**: When a scan is initiated, the program checks all running processes against a local database of known malicious hashes and performs heuristic checks.
+4. **Flagging Suspicious Processes**: If a process is found to be suspicious, it is flagged, and details are displayed in the GUI.
+5. **Terminating Processes**: Users can choose to terminate flagged processes through the GUI.
+6. **Managing Startup Entries**: For terminated processes, associated startup entries are removed from the registry.
+7. **Snapshot and Integrity Check**: Users can take snapshots of system files and registry keys, and later compare the current state with a saved snapshot to detect changes.
+8. **Monitoring Processes**: The program can monitor newly spawned processes for a specified duration.
+9. **Capturing Network Traffic**: Users can capture network traffic to identify suspicious connections, specifying filters and duration for the capture.
 
 Contributing
 ------------
