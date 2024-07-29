@@ -1,7 +1,7 @@
 from database import update_local_database_from_csv, load_local_database
 from processes import detect_suspicious_processes, kill_malware_process, monitor_new_processes
 from snapshot import take_system_snapshot, check_integrity
-from network import capture_packets, extract_ips_from_packets
+from network import capture_packets, extract_ips_from_packets, get_suspicious_ips
 from registry import remove_from_startup
 
 def scan_for_malware(progress_callback=None, scan_type='quick'):
@@ -22,6 +22,12 @@ def scan_for_malware(progress_callback=None, scan_type='quick'):
                 results.append(f"Killed malware process: {name} (PID: {pid})")
         else:
             results.append(f"Suspicious process: {name} (PID: {pid}) requires user action.")
+    suspicious_pids = [p['pid'] for p in suspicious_processes]
+    suspicious_ips = get_suspicious_ips(suspicious_pids)
+    if suspicious_ips:
+        results.append(f"Attacker's IP addresses: {', '.join(suspicious_ips)}")
+    else:
+        results.append("No suspicious IP addresses detected.")
     return "\n".join(results), suspicious_processes
 
 def update_database():
