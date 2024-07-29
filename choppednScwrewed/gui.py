@@ -187,20 +187,29 @@ def kill_selected_process():
 def add_safe_hash_gui():
     file_path = filedialog.askopenfilename(title="Select File to Trust")
     if file_path:
-        add_to_whitelist(file_path)
-        messagebox.showinfo("Add Safe Hash", f"File {file_path} added to safe list.")
+        process_name = simpledialog.askstring("Process Name", "Enter the process name for this file:")
+        if process_name:
+            add_to_whitelist(file_path, process_name)
+            messagebox.showinfo("Add Safe Hash", f"File {file_path} ({process_name}) added to safe list.")
+        else:
+            messagebox.showerror("Add Safe Hash", "Process name is required.")
 
 def open_whitelist_manager():
     def delete_selected():
         selected_items = listbox.curselection()
         if selected_items:
             whitelist = load_whitelist()
-            for index in selected_items:
+            for index in selected_items[::-1]:  # Reverse order to avoid issues when deleting multiple items
                 item = listbox.get(index)
-                # Reverse lookup the hash to delete from the dictionary
-                hash_to_delete = [k for k, v in whitelist.items() if v == item][0]
-                del whitelist[hash_to_delete]
-                listbox.delete(index)
+                # Find the hash to delete from the dictionary
+                hash_to_delete = None
+                for hash, entry in whitelist.items():
+                    if entry['file_path'] == item:
+                        hash_to_delete = hash
+                        break
+                if hash_to_delete:
+                    del whitelist[hash_to_delete]
+                    listbox.delete(index)
             save_whitelist(whitelist)
             messagebox.showinfo("Whitelist Manager", "Selected items have been removed from the whitelist.")
         else:
@@ -208,14 +217,15 @@ def open_whitelist_manager():
 
     whitelist_window = tk.Toplevel(root)
     whitelist_window.title("Whitelist Manager")
-    whitelist_window.geometry("400x300")
+    whitelist_window.geometry("500x400")
 
-    listbox = tk.Listbox(whitelist_window, selectmode=tk.MULTIPLE, width=50, height=15)
+    listbox = tk.Listbox(whitelist_window, selectmode=tk.MULTIPLE, width=80, height=20)
     listbox.pack(pady=10)
 
     whitelist = load_whitelist()
-    for file_path in whitelist.values():
-        listbox.insert(tk.END, file_path)
+    for entry in whitelist.values():
+        display_text = f"{entry['process_name']} ({entry['file_path']})"
+        listbox.insert(tk.END, display_text)
 
     delete_button = ttk.Button(whitelist_window, text="Delete Selected", command=delete_selected)
     delete_button.pack(pady=5)

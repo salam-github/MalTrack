@@ -9,31 +9,27 @@ from pathlib import Path
 from config import DATABASE_FILE, CSV_URL
 from utils import calculate_file_hash
 
-WHITELIST_FILE = 'whitelist.json'
+WHITELIST_FILE = Path.home() / ".maltrack" / "whitelist.json"
 
 def load_whitelist():
     """Load the whitelist of safe file hashes."""
     if os.path.exists(WHITELIST_FILE):
         with open(WHITELIST_FILE, 'r') as file:
-            data = json.load(file)
-            if isinstance(data, list):  # Old format
-                # Convert list to dictionary
-                return {hash: "" for hash in data}  # Assuming we don't have file paths in the old format
-            return data  # New format
+            return json.load(file)
     return {}
 
-def save_whitelist(whitelist):
+def save_whitelist(hashes):
     """Save the whitelist of safe file hashes."""
     with open(WHITELIST_FILE, 'w') as file:
-        json.dump(whitelist, file)
+        json.dump(hashes, file)
 
-def add_to_whitelist(file_path):
-    """Add a file's hash to the whitelist."""
+def add_to_whitelist(file_path, process_name):
+    """Add a file's hash and process name to the whitelist."""
     whitelist = load_whitelist()
     file_hash = calculate_file_hash(file_path)
-    whitelist[file_hash] = file_path
+    whitelist[file_hash] = {"file_path": file_path, "process_name": process_name}
     save_whitelist(whitelist)
-    print(f"Added {file_path} to whitelist.")
+    print(f"Added {file_path} ({process_name}) to whitelist.")
 
 def load_local_database():
     """Load the local database of known malicious hashes."""

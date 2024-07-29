@@ -4,6 +4,7 @@ from pathlib import Path
 
 CONFIG_FILE = Path.home() / ".maltrack" / "maltrack.conf"
 DATABASE_FILE = Path.home() / ".maltrack" / "malware_hashes.json"
+WHITELIST_FILE = Path.home() / ".maltrack" / "whitelist.json"
 CSV_URL = "https://bazaar.abuse.ch/export/csv/full/"
 
 # Ensure the config directory exists
