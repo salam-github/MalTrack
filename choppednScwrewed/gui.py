@@ -213,12 +213,14 @@ def open_whitelist_manager():
         selected_items = listbox.curselection()
         if selected_items:
             whitelist = load_whitelist()
-            for index in selected_items:
-                item = listbox.get(index)
+            to_delete = [listbox.get(index) for index in selected_items]
+            for item in to_delete:
                 # Reverse lookup the hash to delete from the dictionary
-                hash_to_delete = [k for k, v in whitelist.items() if v["file_path"] == item][0]
-                del whitelist[hash_to_delete]
-                listbox.delete(index)
+                hash_to_delete = [k for k, v in whitelist.items() if v["process_name"] + " - " + v["file_path"] == item]
+                for hash_item in hash_to_delete:
+                    if hash_item in whitelist:
+                        del whitelist[hash_item]
+                        listbox.delete(listbox.get(0, "end").index(item))
             save_whitelist(whitelist)
             messagebox.showinfo("Whitelist Manager", "Selected items have been removed from the whitelist.")
         else:

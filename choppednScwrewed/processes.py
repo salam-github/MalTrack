@@ -1,19 +1,13 @@
 import os
 import psutil
 import time
-import subprocess
-import re
 from database import is_known_malicious, load_whitelist, add_to_whitelist
-from utils import calculate_file_hash  # Import the calculate_file_hash function
-from registry import remove_from_startup, delete_registry_keys_associated_with_process  # Import the necessary functions
+from utils import calculate_file_hash
+from registry import remove_from_startup, delete_registry_keys_associated_with_process
 
-# List of known malicious processes
-KNOWN_MALICIOUS_PROCESSES = [
-    "calc.exe",
-    "taskmgr.exe",
-    "mal-sim.exe",
-    "mal-sim.dll",
-    "mal sim"
+# List of known malware files
+known_malware_files = [
+    "maltrack.exe", "mal-sim.exe", "mal-sim.dll", "calc.exe", "taskmgr.exe"
 ]
 
 def heuristic_check(file_path):
@@ -21,8 +15,8 @@ def heuristic_check(file_path):
     suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor']
     for keyword in suspicious_keywords:
         if keyword in file_path.lower():
-            return 50
-    return 0
+            return True
+    return False
 
 def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan=False):
     """Detect suspicious processes using local heuristic checks and local database."""
@@ -35,27 +29,6 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
         try:
             file_path = process.info['exe']
             if file_path and os.path.isfile(file_path):  # Ensure file_path is valid
-                process_name = os.path.basename(file_path)
-                
-                # Check against known malicious processes
-                if process_name in KNOWN_MALICIOUS_PROCESSES:
-                    sus_score = 100
-                    suspicious_process = {
-                        'pid': process.info['pid'],
-                        'name': process.info['name'],
-                        'file_path': file_path,
-                        'sus_score': sus_score,
-                        'cmdline': process.info['cmdline'],
-                        'create_time': process.info['create_time'],
-                        'username': process.info['username']
-                    }
-                    suspicious_processes.append(suspicious_process)
-                    if progress_callback:
-                        progress_callback({"message": f"Detected known malicious process: {process_name} (PID: {process.info['pid']}), "
-                                                      f"File: {file_path}, Suspicion Score: {sus_score}%",
-                                           "current": index + 1, "total": total_processes, "process_info": suspicious_process})
-                    continue
-
                 file_hash = calculate_file_hash(file_path)
                 if file_hash in safe_hashes:
                     if progress_callback:
@@ -63,11 +36,8 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
                                           "current": index + 1, "total": total_processes, "process_name": process.info['name']})
                     continue  # Skip whitelisted files
 
-                sus_score = heuristic_check(file_path)
-                if is_known_malicious(file_path):
-                    sus_score = 100
-
-                if sus_score > 0:
+                if is_known_malicious(file_path) or heuristic_check(file_path) or os.path.basename(file_path) in known_malware_files:
+                    sus_score = 100 if is_known_malicious(file_path) or os.path.basename(file_path) in known_malware_files else 50
                     suspicious_process = {
                         'pid': process.info['pid'],
                         'name': process.info['name'],
@@ -109,7 +79,6 @@ def kill_malware_process(pid):
     try:
         process = psutil.Process(pid)
         file_path = process.exe()  # Get the executable path before terminating the process
-        process_name = process.name()
         process.terminate()
         process.wait()  # Wait for the process to be terminated
 
@@ -118,36 +87,10 @@ def kill_malware_process(pid):
         # Remove associated registry keys
         remove_from_startup(file_path)
         delete_registry_keys_associated_with_process(file_path)
-
-        # Remove the malware file
-        remove_malware_files(file_path)
-
-        # Identify attacker IP
-        identify_attacker_ip(file_path)
-
         return True
     except Exception as e:
         print(f"Failed to kill malware process: {e}")
         return False
-
-def remove_malware_files(file_path):
-    try:
-        os.remove(file_path)
-        print(f"Removed malware file: {file_path}")
-    except Exception as e:
-        print(f"Failed to remove malware file: {e}")
-
-def identify_attacker_ip(file_path):
-    try:
-        with open(file_path, "rb") as f:
-            strings = re.findall(b"([\x20-\x7E]{4,})", f.read())
-            for s in strings:
-                decoded_string = s.decode("utf-8")
-                match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", decoded_string)
-                if match:
-                    print(f"Potential attacker IP: {match.group()}")
-    except OSError as e:
-        print(f"Failed to identify attacker IP: {e}")
 
 def monitor_new_processes(duration):
     """Monitor newly spawned processes for a specified duration."""
