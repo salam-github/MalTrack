@@ -2,6 +2,7 @@ import re
 import socket
 import subprocess
 import psutil
+import os
 
 def identify_attacker_ip(filename):
     filepath = file_location(filename)
