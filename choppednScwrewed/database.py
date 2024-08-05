@@ -1,5 +1,3 @@
-# database.py
-
 import json
 import os
 import requests
@@ -9,30 +7,10 @@ from io import BytesIO, TextIOWrapper
 from tqdm import tqdm
 from pathlib import Path
 from config import DATABASE_FILE, CSV_URL
+from hashing import calculate_file_hash
 from utils import calculate_file_hash
 
-WHITELIST_FILE = os.path.join(os.getenv('APPDATA'), 'MalTrack', 'whitelist.json')
-
-def load_whitelist():
-    """Load the whitelist of safe file hashes."""
-    if os.path.exists(WHITELIST_FILE):
-        with open(WHITELIST_FILE, 'r') as file:
-            return json.load(file)
-    return {}
-
-def save_whitelist(hashes):
-    """Save the whitelist of safe file hashes."""
-    os.makedirs(os.path.dirname(WHITELIST_FILE), exist_ok=True)
-    with open(WHITELIST_FILE, 'w') as file:
-        json.dump(hashes, file, indent=4)
-
-def add_to_whitelist(file_path, process_name):
-    """Add a file's hash to the whitelist."""
-    whitelist = load_whitelist()
-    file_hash = calculate_file_hash(file_path)
-    whitelist[file_hash] = {"file_path": file_path, "process_name": process_name}
-    save_whitelist(whitelist)
-    print(f"Added {file_path} to whitelist.")
+WHITELIST_FILE = 'whitelist.json'
 
 def load_local_database():
     """Load the local database of known malicious hashes."""
@@ -41,12 +19,32 @@ def load_local_database():
             return set(json.load(file))
     return set()
 
+def load_whitelist():
+    """Load the whitelist of safe file hashes."""
+    if os.path.exists(WHITELIST_FILE):
+        with open(WHITELIST_FILE, 'r') as file:
+            return set(json.load(file))
+    return set()
+
+def save_whitelist(hashes):
+    """Save the whitelist of safe file hashes."""
+    with open(WHITELIST_FILE, 'w') as file:
+        json.dump(list(hashes), file)
+
+def add_to_whitelist(file_path):
+    """Add a file's hash to the whitelist."""
+    whitelist = load_whitelist()
+    file_hash = calculate_file_hash(file_path)
+    whitelist.add(file_hash)
+    save_whitelist(whitelist)
+    print(f"Added {file_path} to whitelist.")
+
 def save_local_database(hashes):
     """Save the local database of known malicious hashes."""
     with open(DATABASE_FILE, 'w') as file:
         json.dump(list(hashes), file)
 
-def update_local_database_from_csv(progress_callback=None):
+def update_local_database_from_csv():
     """Fetch the latest malicious file hashes from MalwareBazaar CSV and update the local database."""
     response = requests.get(CSV_URL, stream=True)
     total_size = int(response.headers.get('content-length', 0))
@@ -57,8 +55,6 @@ def update_local_database_from_csv(progress_callback=None):
     for data in response.iter_content(block_size):
         progress_bar.update(len(data))
         zip_content.write(data)
-        if progress_callback:
-            progress_callback(progress_bar.n, total_size)
     progress_bar.close()
 
     if response.status_code == 200:
@@ -85,5 +81,6 @@ def update_local_database_from_csv(progress_callback=None):
 def is_known_malicious(file_path):
     """Check if the file hash is in the local database of known malicious hashes."""
     local_hashes = load_local_database()
+    whitelist = load_whitelist()
     file_hash = calculate_file_hash(file_path)
-    return file_hash in local_hashes
+    return file_hash in local_hashes and file_hash not in whitelist
