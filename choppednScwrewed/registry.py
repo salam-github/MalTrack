@@ -51,6 +51,7 @@ def remove_from_startup(exe_path):
                         if exe_path.lower() in value_data.lower():
                             winreg.DeleteValue(reg_key, value_name)
                             print(f"Removed {value_name} from startup key: {full_key_path}")
+                            break
                         else:
                             i += 1
                     except OSError:

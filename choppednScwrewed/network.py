@@ -1,23 +1,10 @@
 import re
-import os
-import psutil
+import socket
 import subprocess
-
-def file_location(filename):
-    """Locate the file path for a given filename."""
-    try:
-        for root, _, files in os.walk("C:\\"):
-            if filename in files:
-                return os.path.join(root, filename)
-    except Exception as e:
-        print(f"Error locating file: {e}")
-    return None
+import psutil
 
 def identify_attacker_ip(filename):
-    """Identify potential attacker IP addresses in the given file."""
     filepath = file_location(filename)
-    if not filepath:
-        return "File not found"
     try:
         with open(filepath, "rb") as f:
             strings = re.findall(b"([\x20-\x7E]{4,})", f.read())
@@ -25,10 +12,34 @@ def identify_attacker_ip(filename):
                 decoded_string = s.decode("utf-8")
                 match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", decoded_string)
                 if match:
-                    return f"Potential attacker IP: {match.group()}"
+                    print(f"Potential attacker IP: {match.group()}")
     except OSError as e:
-        return f"Error: {e}"
-    return "No IP address found"
+        print(e)
+
+def file_location(filename):
+    try:
+        for root, _, files in os.walk("C:\\"):
+            if filename in files:
+                return os.path.join(root, filename)
+    except Exception as e:
+        print(f"Error: {e}")
+
+def capture_packets(duration, flt):
+    """Capture network packets for a specified duration."""
+    command = f"tshark -a duration:{duration} -f \"{flt}\" -w capture.pcap"
+    subprocess.run(command, shell=True)
+    return "capture.pcap"
+
+def extract_ips_from_packets(pcap_file):
+    """Extract IPs from captured packets using tshark."""
+    command = f"tshark -r {pcap_file} -T fields -e ip.src -e ip.dst"
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    ips = {"outgoing": set(), "incoming": set()}
+    for line in result.stdout.splitlines():
+        src_ip, dst_ip = line.split()
+        ips["outgoing"].add(src_ip)
+        ips["incoming"].add(dst_ip)
+    return ips
 
 def get_suspicious_ips(pids):
     """Get IP addresses associated with suspicious processes."""
@@ -43,21 +54,3 @@ def get_suspicious_ips(pids):
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return suspicious_ips
-
-def capture_packets(duration, flt):
-    """Capture network packets for a specified duration."""
-    capture_file = "capture.pcap"
-    command = f"tshark -a duration:{duration} -f \"{flt}\" -w {capture_file}"
-    subprocess.run(command, shell=True)
-    return capture_file
-
-def extract_ips_from_packets(pcap_file):
-    """Extract IP addresses from a packet capture file."""
-    ips = {"outgoing": set(), "incoming": set()}
-    command = f"tshark -r {pcap_file} -T fields -e ip.src -e ip.dst"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    for line in result.stdout.splitlines():
-        src, dst = line.split()
-        ips["outgoing"].add(src)
-        ips["incoming"].add(dst)
-    return ips
