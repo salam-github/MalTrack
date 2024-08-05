@@ -187,7 +187,7 @@ def inspect_process():
         messagebox.showinfo("Process Information", details)
     else:
         messagebox.showwarning("Inspect Process", "No process selected")
-
+        
 def kill_selected_process():
     selected_item = treeview.selection()
     if selected_item:
@@ -195,21 +195,56 @@ def kill_selected_process():
         pid = int(process_info[0])
         process_name = process_info[1]
         file_path = process_info[2]
-        name_variants = [process_name, process_name.replace("-", ""), process_name.replace("_", ""), process_name.lower()]
-        exe_path_variants = [file_path, file_path.replace("-", ""), file_path.replace("_", ""), file_path.lower()]
+
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
-                # Extract the executable name from the file path for startup entry removal
+                # Define the name variants for registry entries
+                name_variants = ["Mal-Track", "maltrack", "maltrack.exe", "mal-track.exe"]
+
+                # Add the file path itself as a variant
                 exe_name = os.path.basename(file_path)
-                exe_name_variants = [exe_name, exe_name.replace("-", ""), exe_name.replace("_", ""), exe_name.lower()]
-                remove_from_startup(exe_name_variants)
-                delete_registry_keys_associated_with_process(exe_path_variants)
+                exe_path_variants = [
+                    file_path,
+                    file_path.lower(),
+                    exe_name,
+                    exe_name.lower()
+                ]
+
+                # Combine name variants and file path variants
+                all_variants = name_variants + exe_path_variants
+
+                # Handle registry keys
+                remove_from_startup(all_variants)
+                delete_registry_keys_associated_with_process()
+
                 treeview.delete(selected_item)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
             else:
                 messagebox.showerror("Kill Process", f"Failed to kill process {process_name} (PID: {pid}).")
     else:
         messagebox.showwarning("Kill Process", "No process selected")
+
+""" def kill_selected_process():
+    selected_item = treeview.selection()
+    if selected_item:
+        process_info = treeview.item(selected_item, 'values')
+        pid = int(process_info[0])
+        process_name = process_info[1]
+        file_path = process_info[2]
+        
+        if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
+            if kill_malware_process(pid):
+                # Define the name variants for registry entries
+                name_variants = ["Mal-Track", "maltrack", "maltrack.exe", "mal-track.exe"]
+                # Handle registry keys
+                remove_from_startup(name_variants)
+                delete_registry_keys_associated_with_process()
+                treeview.delete(selected_item)
+                messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
+            else:
+                messagebox.showerror("Kill Process", f"Failed to kill process {process_name} (PID: {pid}).")
+    else:
+        messagebox.showwarning("Kill Process", "No process selected") """
 
 def add_safe_hash_gui():
     file_path = filedialog.askopenfilename(title="Select File to Trust")
