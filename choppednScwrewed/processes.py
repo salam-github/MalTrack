@@ -17,7 +17,7 @@ KNOWN_MALICIOUS_PROCESSES = [
 
 def heuristic_check(file_path):
     """Perform basic heuristic checks on the file."""
-    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor']
+    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor', "mal-track", "maltrack", "mal-track.exe", "maltrack.exe", "Mal-Track.exe"]
     for keyword in suspicious_keywords:
         if keyword in file_path.lower():
             return 50
