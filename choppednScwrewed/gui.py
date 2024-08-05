@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog, scrolledtext, ttk
-import winreg
 import os
 import threading
 import time
@@ -8,7 +7,7 @@ import ctypes
 import sys
 from main import scan_for_malware, update_database, take_snapshot, check_system_integrity, monitor_processes, capture_network_traffic, kill_malware_process
 from database import add_to_whitelist, load_whitelist, save_whitelist, update_local_database_from_csv
-from processes import delete_registry_keys_associated_with_process  # Import the function from processes
+from processes import delete_registry_keys_associated_with_process
 from registry import remove_from_startup
 
 suspicious_processes = []
