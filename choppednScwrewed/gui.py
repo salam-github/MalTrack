@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog, scrolledtext, ttk
+import winreg
 import os
 import threading
 import time
@@ -7,7 +8,7 @@ import ctypes
 import sys
 from main import scan_for_malware, update_database, take_snapshot, check_system_integrity, monitor_processes, capture_network_traffic, kill_malware_process
 from database import add_to_whitelist, load_whitelist, save_whitelist, update_local_database_from_csv
-from processes import delete_registry_keys_associated_with_process
+from processes import delete_registry_keys_associated_with_process  # Import the function from processes
 from registry import remove_from_startup
 
 suspicious_processes = []
@@ -213,14 +214,12 @@ def open_whitelist_manager():
         selected_items = listbox.curselection()
         if selected_items:
             whitelist = load_whitelist()
-            to_delete = [listbox.get(index) for index in selected_items]
-            for item in to_delete:
+            for index in selected_items:
+                item = listbox.get(index)
                 # Reverse lookup the hash to delete from the dictionary
-                hash_to_delete = [k for k, v in whitelist.items() if v["process_name"] + " - " + v["file_path"] == item]
-                for hash_item in hash_to_delete:
-                    if hash_item in whitelist:
-                        del whitelist[hash_item]
-                        listbox.delete(listbox.get(0, "end").index(item))
+                hash_to_delete = [k for k, v in whitelist.items() if v["file_path"] == item][0]
+                del whitelist[hash_to_delete]
+                listbox.delete(index)
             save_whitelist(whitelist)
             messagebox.showinfo("Whitelist Manager", "Selected items have been removed from the whitelist.")
         else:
@@ -369,3 +368,4 @@ kill_button.pack(side=tk.RIGHT, padx=10, pady=10)
 if __name__ == "__main__":
     elevate_privileges()
     root.mainloop()
+

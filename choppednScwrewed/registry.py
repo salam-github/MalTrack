@@ -1,6 +1,7 @@
 import winreg
 import os
 from tqdm import tqdm
+from config import load_config
 
 def delete_empty_key(root_key, sub_key):
     """Delete a registry key if it is empty."""
@@ -33,8 +34,7 @@ def remove_from_startup(exe_path):
     """Remove the malware from startup."""
     keys_to_check = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",
-        r"Software\Microsoft\Windows\CurrentVersion\RunOnce",
-        r"SOFTWARE\MalTrackTest"
+        r"Software\Microsoft\Windows\CurrentVersion\RunOnce"
     ]
 
     for root_key in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
@@ -84,11 +84,11 @@ def delete_registry_keys_associated_with_process(process_name):
 
 def collect_registry():
     """Collect registry values."""
+    config = load_config()
     registry_snapshot = {}
     registry_keys = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",
-        r"Software\Microsoft\Windows\CurrentVersion\RunOnce",
-        r"SOFTWARE\MalTrackTest"
+        r"Software\Microsoft\Windows\CurrentVersion\RunOnce"
     ]
     progress_bar = tqdm(desc="Collecting registry keys", unit="key")
 
