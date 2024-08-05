@@ -51,7 +51,6 @@ def remove_from_startup(exe_path):
                         if exe_path.lower() in value_data.lower():
                             winreg.DeleteValue(reg_key, value_name)
                             print(f"Removed {value_name} from startup key: {full_key_path}")
-                            break
                         else:
                             i += 1
                     except OSError:
@@ -70,18 +69,32 @@ def remove_from_startup(exe_path):
 
 def delete_registry_keys_associated_with_process(process_name):
     """Delete registry keys associated with the given process name."""
-    try:
-        with open("registry_keys.log", "r") as log_file:
-            registry_keys = log_file.readlines()
-        for sub_key in registry_keys:
-            sub_key = sub_key.strip()
+    keys_to_check = [
+        r"Software\Microsoft\Windows\CurrentVersion\Run",
+        r"Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    ]
+    
+    for root_key in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
+        for key in keys_to_check:
             try:
-                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, sub_key)
-                print(f"Deleted registry key: {sub_key}")
+                with winreg.OpenKey(root_key, key, 0, winreg.KEY_ALL_ACCESS) as reg_key:
+                    i = 0
+                    while True:
+                        try:
+                            value_name, value_data, _ = winreg.EnumValue(reg_key, i)
+                            if process_name.lower() in value_data.lower():
+                                winreg.DeleteValue(reg_key, value_name)
+                                print(f"Deleted registry key {value_name} for process {process_name}")
+                            else:
+                                i += 1
+                        except OSError:
+                            break
             except FileNotFoundError:
-                print(f"Registry key not found: {sub_key}")
-    except FileNotFoundError:
-        print("Registry keys log file not found.")
+                continue
+            except PermissionError:
+                print(f"Access denied to registry key: {key}. Please run the script as an administrator.")
+            except Exception as e:
+                print(f"Error accessing registry key {key}: {e}")
 
 def collect_registry():
     """Collect registry values."""

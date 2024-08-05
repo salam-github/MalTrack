@@ -99,6 +99,7 @@ def kill_malware_process(pid):
         print(f"Failed to kill malware process: {e}")
         return False
 
+
 def monitor_new_processes(duration):
     """Monitor newly spawned processes for a specified duration."""
     print("Monitoring newly spawned processes...")
