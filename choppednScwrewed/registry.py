@@ -3,98 +3,35 @@ import os
 from tqdm import tqdm
 from config import load_config
 
-def delete_empty_key(root_key, sub_key):
-    """Delete a registry key if it is empty."""
+def remove_from_startup(malware):
+    startup_key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
     try:
-        with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as reg_key:
-            # Check if the key is empty
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, startup_key_path, 0, winreg.KEY_SET_VALUE) as startup_key:
             try:
-                if winreg.EnumValue(reg_key, 0):
-                    return  # Key is not empty
-            except OSError:
-                pass  # Key is empty
-
-            try:
-                if winreg.EnumKey(reg_key, 0):
-                    return  # Key has subkeys
-            except OSError:
-                pass  # No subkeys
-
-        # If we reached here, the key is empty
-        winreg.DeleteKey(root_key, sub_key)
-        print(f"Deleted empty registry key: {sub_key}")
-    except FileNotFoundError:
-        print(f"Registry key not found: {sub_key}")
-    except PermissionError:
-        print(f"Access denied to registry key: {sub_key}. Please run the script as an administrator.")
+                winreg.DeleteValue(startup_key, malware)
+                print(f"'{malware}' startup entry removed successfully.")
+            except FileNotFoundError:
+                print(f"'{malware}' startup entry not found.")
     except Exception as e:
-        print(f"Error deleting registry key {sub_key}: {e}")
+        print(f"Error: {e}")
 
-def remove_from_startup(exe_path):
-    """Remove the malware from startup."""
-    keys_to_check = [
+def delete_registry_keys_associated_with_process(exe_path):
+    registry_paths = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",
-        r"Software\Microsoft\Windows\CurrentVersion\RunOnce"
+        # Add other registry paths if the malware is known to add keys there
     ]
 
-    for root_key in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
-        root_key_name = "HKEY_LOCAL_MACHINE" if root_key == winreg.HKEY_LOCAL_MACHINE else "HKEY_CURRENT_USER"
-        for key in keys_to_check:
-            full_key_path = f"{root_key_name}\\{key}"
-            try:
-                reg_key = winreg.OpenKey(root_key, key, 0, winreg.KEY_ALL_ACCESS)
-                i = 0
-                while True:
-                    try:
-                        value_name, value_data, _ = winreg.EnumValue(reg_key, i)
-                        print(f"Checking value: {value_name} -> {value_data} in {full_key_path}")
-                        if exe_path.lower() in value_data.lower():
-                            winreg.DeleteValue(reg_key, value_name)
-                            print(f"Removed {value_name} from startup key: {full_key_path}")
-                        else:
-                            i += 1
-                    except OSError:
-                        print(f"No more values in key: {full_key_path}")
-                        break
-            except FileNotFoundError:
-                print(f"Registry key not found: {full_key_path}")
-                continue
-            except PermissionError:
-                print(f"Access denied to registry key: {full_key_path}. Please run the script as an administrator.")
-            except Exception as e:
-                print(f"Error accessing registry key {full_key_path}: {e}")
-
-            # Delete the key if it is empty
-            delete_empty_key(root_key, key)
-
-def delete_registry_keys_associated_with_process(process_name):
-    """Delete registry keys associated with the given process name."""
-    keys_to_check = [
-        r"Software\Microsoft\Windows\CurrentVersion\Run",
-        r"Software\Microsoft\Windows\CurrentVersion\RunOnce"
-    ]
-    
-    for root_key in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
-        for key in keys_to_check:
-            try:
-                with winreg.OpenKey(root_key, key, 0, winreg.KEY_ALL_ACCESS) as reg_key:
-                    i = 0
-                    while True:
-                        try:
-                            value_name, value_data, _ = winreg.EnumValue(reg_key, i)
-                            if process_name.lower() in value_data.lower():
-                                winreg.DeleteValue(reg_key, value_name)
-                                print(f"Deleted registry key {value_name} for process {process_name}")
-                            else:
-                                i += 1
-                        except OSError:
-                            break
-            except FileNotFoundError:
-                continue
-            except PermissionError:
-                print(f"Access denied to registry key: {key}. Please run the script as an administrator.")
-            except Exception as e:
-                print(f"Error accessing registry key {key}: {e}")
+    for path in registry_paths:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE) as key:
+                try:
+                    winreg.DeleteValue(key, exe_path)
+                    print(f"Registry entry '{exe_path}' removed from {path}.")
+                except FileNotFoundError:
+                    print(f"No registry entry for '{exe_path}' found in {path}.")
+        except Exception as e:
+            print(f"Error accessing registry path {path}: {e}")
 
 def collect_registry():
     """Collect registry values."""

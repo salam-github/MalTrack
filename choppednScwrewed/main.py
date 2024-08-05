@@ -2,7 +2,7 @@ from database import update_local_database_from_csv, load_local_database
 from processes import detect_suspicious_processes, kill_malware_process, monitor_new_processes
 from snapshot import take_system_snapshot, check_integrity
 from network import capture_packets, extract_ips_from_packets, get_suspicious_ips
-from registry import remove_from_startup
+from registry import remove_from_startup, delete_registry_keys_associated_with_process
 
 def scan_for_malware(progress_callback=None, scan_type='quick'):
     quick_scan = scan_type == 'quick'
@@ -18,7 +18,8 @@ def scan_for_malware(progress_callback=None, scan_type='quick'):
                        f"File: {exe_path}, Suspicion Score: {sus_score}%")
         if sus_score > 70:
             if kill_malware_process(pid):
-                remove_from_startup(exe_path)
+                remove_from_startup(name)  # Use the correct name for the startup entry
+                delete_registry_keys_associated_with_process(exe_path)
                 results.append(f"Killed malware process: {name} (PID: {pid})")
         else:
             results.append(f"Suspicious process: {name} (PID: {pid}) requires user action.")
@@ -54,3 +55,6 @@ def capture_network_traffic(duration, flt):
     report += "Outgoing IPs:\n" + "\n".join(ips["outgoing"]) + "\n\n"
     report += "Incoming IPs:\n" + "\n".join(ips["incoming"]) + "\n"
     return report
+
+if __name__ == "__main__":
+    print(scan_for_malware())
