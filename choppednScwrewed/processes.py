@@ -6,9 +6,7 @@ from utils import calculate_file_hash
 from registry import remove_from_startup, delete_registry_keys_associated_with_process
 
 # List of known malware files
-known_malware_files = [
-    "maltrack.exe", "mal-sim.exe", "mal-sim.dll", "calc.exe", "taskmgr.exe"
-]
+known_malware_files = ["mal-track.exe", "calc.exe", "taskmgr.exe", "mal-sim.exe", "mal-sim.dll"]
 
 def heuristic_check(file_path):
     """Perform basic heuristic checks on the file."""
@@ -28,7 +26,31 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
     for index, process in enumerate(processes):
         try:
             file_path = process.info['exe']
+            file_name = os.path.basename(file_path).lower()
             if file_path and os.path.isfile(file_path):  # Ensure file_path is valid
+                if file_name in known_malware_files:
+                    sus_score = 100
+                    suspicious_process = {
+                        'pid': process.info['pid'],
+                        'name': process.info['name'],
+                        'file_path': file_path,
+                        'sus_score': sus_score,
+                        'cmdline': process.info['cmdline'],
+                        'create_time': process.info['create_time'],
+                        'username': process.info['username']
+                    }
+                    suspicious_processes.append(suspicious_process)
+                    if progress_callback:
+                        cmdline_str = ' '.join(process.info['cmdline']) if process.info['cmdline'] else 'N/A'
+                        progress_callback({"message": f"Detected suspicious process: {process.info['name']} (PID: {process.info['pid']}), "
+                                                      f"File: {file_path}, Suspicion Score: {sus_score}%, "
+                                                      f"Command Line: {cmdline_str}, "
+                                                      f"Creation Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process.info['create_time']))}, "
+                                                      f"Username: {process.info['username']}",
+                                          "current": index + 1, "total": total_processes, "process_name": process.info['name'],
+                                          "process_info": suspicious_process})
+                    continue  # Skip further checks for known malware files
+
                 file_hash = calculate_file_hash(file_path)
                 if file_hash in safe_hashes:
                     if progress_callback:
@@ -36,8 +58,8 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
                                           "current": index + 1, "total": total_processes, "process_name": process.info['name']})
                     continue  # Skip whitelisted files
 
-                if is_known_malicious(file_path) or heuristic_check(file_path) or os.path.basename(file_path) in known_malware_files:
-                    sus_score = 100 if is_known_malicious(file_path) or os.path.basename(file_path) in known_malware_files else 50
+                if is_known_malicious(file_path) or heuristic_check(file_path):
+                    sus_score = 100 if is_known_malicious(file_path) else 50
                     suspicious_process = {
                         'pid': process.info['pid'],
                         'name': process.info['name'],
@@ -49,9 +71,6 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
                     }
                     suspicious_processes.append(suspicious_process)
                     
-                    # Print the suspicious process for debugging
-                    print(suspicious_process)
-
                     if progress_callback:
                         cmdline_str = ' '.join(process.info['cmdline']) if process.info['cmdline'] else 'N/A'
                         progress_callback({"message": f"Detected suspicious process: {process.info['name']} (PID: {process.info['pid']}), "
