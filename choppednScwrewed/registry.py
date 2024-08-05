@@ -1,7 +1,6 @@
 import winreg
 import os
 from tqdm import tqdm
-from config import load_config
 
 def delete_empty_key(root_key, sub_key):
     """Delete a registry key if it is empty."""
@@ -49,7 +48,7 @@ def remove_from_startup(exe_path):
                     try:
                         value_name, value_data, _ = winreg.EnumValue(reg_key, i)
                         print(f"Checking value: {value_name} -> {value_data} in {full_key_path}")
-                        if exe_path.lower() in value_data.lower() or "TestData" in value_data:  # Modify condition to match the test value
+                        if exe_path.lower() in value_data.lower():
                             winreg.DeleteValue(reg_key, value_name)
                             print(f"Removed {value_name} from startup key: {full_key_path}")
                         else:
@@ -85,7 +84,6 @@ def delete_registry_keys_associated_with_process(process_name):
 
 def collect_registry():
     """Collect registry values."""
-    config = load_config()
     registry_snapshot = {}
     registry_keys = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",

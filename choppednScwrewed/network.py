@@ -1,57 +1,34 @@
+import re
+import os
 import psutil
 import subprocess
-import socket
-import struct
-import os
-import time
 
-def capture_packets(duration, flt):
-    """Capture network packets for a specified duration on Windows."""
-    print(f"Capturing packets for {duration} seconds with filter {flt}...")
+def file_location(filename):
+    """Locate the file path for a given filename."""
+    try:
+        for root, _, files in os.walk("C:\\"):
+            if filename in files:
+                return os.path.join(root, filename)
+    except Exception as e:
+        print(f"Error locating file: {e}")
+    return None
 
-    # Create a raw socket and bind it to the public interface
-    conn = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
-    conn.bind((socket.gethostname(), 0))
-
-    # Include IP headers
-    conn.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-
-    # Enable promiscuous mode
-    conn.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-
-    start_time = time.time()
-    packets = []
-
-    while True:
-        # Capture packets for the specified duration
-        if time.time() - start_time > duration:
-            break
-        packet = conn.recvfrom(65565)
-        packets.append(packet[0])  # We only need the packet data, not the address
-
-    # Disable promiscuous mode
-    conn.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-
-    print("Packet capture completed.")
-    return packets
-
-def extract_ips_from_packets(packets):
-    """Extract IP addresses from captured packets."""
-    ips = {"incoming": set(), "outgoing": set()}
-
-    for packet in packets:
-        # Unpack the packet to get the IP header
-        ip_header = packet[0:20]
-        iph = struct.unpack('!BBHHHBBH4s4s', ip_header)
-        
-        # Extract source and destination IP addresses
-        src_ip = socket.inet_ntoa(iph[8])
-        dest_ip = socket.inet_ntoa(iph[9])
-        
-        ips["outgoing"].add(src_ip)
-        ips["incoming"].add(dest_ip)
-
-    return ips
+def identify_attacker_ip(filename):
+    """Identify potential attacker IP addresses in the given file."""
+    filepath = file_location(filename)
+    if not filepath:
+        return "File not found"
+    try:
+        with open(filepath, "rb") as f:
+            strings = re.findall(b"([\x20-\x7E]{4,})", f.read())
+            for s in strings:
+                decoded_string = s.decode("utf-8")
+                match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", decoded_string)
+                if match:
+                    return f"Potential attacker IP: {match.group()}"
+    except OSError as e:
+        return f"Error: {e}"
+    return "No IP address found"
 
 def get_suspicious_ips(pids):
     """Get IP addresses associated with suspicious processes."""
@@ -66,3 +43,21 @@ def get_suspicious_ips(pids):
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return suspicious_ips
+
+def capture_packets(duration, flt):
+    """Capture network packets for a specified duration."""
+    capture_file = "capture.pcap"
+    command = f"tshark -a duration:{duration} -f \"{flt}\" -w {capture_file}"
+    subprocess.run(command, shell=True)
+    return capture_file
+
+def extract_ips_from_packets(pcap_file):
+    """Extract IP addresses from a packet capture file."""
+    ips = {"outgoing": set(), "incoming": set()}
+    command = f"tshark -r {pcap_file} -T fields -e ip.src -e ip.dst"
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        src, dst = line.split()
+        ips["outgoing"].add(src)
+        ips["incoming"].add(dst)
+    return ips
