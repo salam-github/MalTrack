@@ -194,8 +194,13 @@ def kill_selected_process():
         process_info = treeview.item(selected_item, 'values')
         pid = int(process_info[0])
         process_name = process_info[1]
+        file_path = process_info[2]
+        name_variants = [process_name, process_name.replace("-", ""), process_name.replace("_", ""), process_name.lower()]
+        exe_path_variants = [file_path, file_path.replace("-", ""), file_path.replace("_", ""), file_path.lower()]
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
+                remove_from_startup(name_variants)
+                delete_registry_keys_associated_with_process(exe_path_variants)
                 treeview.delete(selected_item)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
             else:
