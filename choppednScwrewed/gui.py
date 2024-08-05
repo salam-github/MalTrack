@@ -199,7 +199,10 @@ def kill_selected_process():
         exe_path_variants = [file_path, file_path.replace("-", ""), file_path.replace("_", ""), file_path.lower()]
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
-                remove_from_startup(name_variants)
+                # Extract the executable name from the file path for startup entry removal
+                exe_name = os.path.basename(file_path)
+                exe_name_variants = [exe_name, exe_name.replace("-", ""), exe_name.replace("_", ""), exe_name.lower()]
+                remove_from_startup(exe_name_variants)
                 delete_registry_keys_associated_with_process(exe_path_variants)
                 treeview.delete(selected_item)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
