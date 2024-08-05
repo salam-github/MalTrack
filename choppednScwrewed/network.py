@@ -2,10 +2,14 @@ import re
 import socket
 import subprocess
 import psutil
-import os
+import os  # Add this import statement
 
 def identify_attacker_ip(filename):
     filepath = file_location(filename)
+    if filepath is None:
+        print(f"File {filename} not found.")
+        return
+
     try:
         with open(filepath, "rb") as f:
             strings = re.findall(b"([\x20-\x7E]{4,})", f.read())
@@ -24,6 +28,8 @@ def file_location(filename):
                 return os.path.join(root, filename)
     except Exception as e:
         print(f"Error: {e}")
+    return None  # Return None if the file is not found
+
 
 def capture_packets(duration, flt):
     """Capture network packets for a specified duration."""

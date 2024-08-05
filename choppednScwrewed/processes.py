@@ -2,15 +2,18 @@ import os
 import psutil
 import time
 from database import is_known_malicious, load_whitelist, add_to_whitelist
-from utils import calculate_file_hash  # Import the calculate_file_hash function
-from registry import remove_from_startup, delete_registry_keys_associated_with_process  # Import the necessary functions
-from network import identify_attacker_ip  # Import the identify_attacker_ip function
+from utils import calculate_file_hash
+from registry import remove_from_startup, delete_registry_keys_associated_with_process
+from network import identify_attacker_ip
 
-known_malware_files = ["maltrack.exe", "mal-track.exe", "maltrack.dll"]
+# List of known malware files
+known_malware_files = [
+    "mal-track.exe", "maltrack.exe", "mal-track", "maltrack"
+]
 
 def heuristic_check(file_path):
     """Perform basic heuristic checks on the file."""
-    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor']
+    suspicious_keywords = ['malware', 'virus', 'trojan', 'backdoor', 'mal-track.exe', 'maltrack.exe', 'mal-track', 'maltrack']
     for keyword in suspicious_keywords:
         if keyword in file_path.lower():
             return True
@@ -28,54 +31,54 @@ def detect_suspicious_processes(local_hashes, progress_callback=None, quick_scan
             file_path = process.info['exe']
             if file_path and os.path.isfile(file_path):  # Ensure file_path is valid
                 file_hash = calculate_file_hash(file_path)
-                file_name = os.path.basename(file_path).lower()
-
-                if file_name in known_malware_files:
-                    sus_score = 100
-                elif file_hash in safe_hashes:
+                if file_hash in safe_hashes:
                     if progress_callback:
-                        progress_callback({"message": f"Skipping whitelisted process: {process.info['name']} (PID: {process.info['pid']}), File: {file_path}",
-                                          "current": index + 1, "total": total_processes, "process_name": process.info['name']})
+                        progress_callback({
+                            "message": f"Skipping whitelisted process: {process.info['name']} (PID: {process.info['pid']}), File: {file_path}",
+                            "current": index + 1, "total": total_processes, "process_name": process.info['name']
+                        })
                     continue  # Skip whitelisted files
-                elif is_known_malicious(file_path) or heuristic_check(file_path):
+
+                if is_known_malicious(file_path) or heuristic_check(file_path):
                     sus_score = 100 if is_known_malicious(file_path) else 50
+                    suspicious_process = {
+                        'pid': process.info['pid'],
+                        'name': process.info['name'],
+                        'file_path': file_path,
+                        'sus_score': sus_score,
+                        'cmdline': process.info['cmdline'],
+                        'create_time': process.info['create_time'],
+                        'username': process.info['username']
+                    }
+                    suspicious_processes.append(suspicious_process)
+                    identify_attacker_ip(file_path)
+                    
+                    if progress_callback:
+                        cmdline_str = ' '.join(process.info['cmdline']) if process.info['cmdline'] else 'N/A'
+                        progress_callback({
+                            "message": f"Detected suspicious process: {process.info['name']} (PID: {process.info['pid']}), "
+                                       f"File: {file_path}, Suspicion Score: {sus_score}%, "
+                                       f"Command Line: {cmdline_str}, "
+                                       f"Creation Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process.info['create_time']))}, "
+                                       f"Username: {process.info['username']}",
+                            "current": index + 1, "total": total_processes, "process_name": process.info['name'],
+                            "process_info": suspicious_process
+                        })
                 else:
                     add_to_whitelist(file_path, process.info['name'])  # Add safe files to whitelist
-                    continue
-
-                suspicious_process = {
-                    'pid': process.info['pid'],
-                    'name': process.info['name'],
-                    'file_path': file_path,
-                    'sus_score': sus_score,
-                    'cmdline': process.info['cmdline'],
-                    'create_time': process.info['create_time'],
-                    'username': process.info['username']
-                }
-                suspicious_processes.append(suspicious_process)
-
-                if sus_score == 100:
-                    ip_info = identify_attacker_ip(file_path)
-                    print(ip_info)
-
-                if progress_callback:
-                    cmdline_str = ' '.join(process.info['cmdline']) if process.info['cmdline'] else 'N/A'
-                    progress_callback({"message": f"Detected suspicious process: {process.info['name']} (PID: {process.info['pid']}), "
-                                                  f"File: {file_path}, Suspicion Score: {sus_score}%, "
-                                                  f"Command Line: {cmdline_str}, "
-                                                  f"Creation Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process.info['create_time']))}, "
-                                                  f"Username: {process.info['username']}",
-                                      "current": index + 1, "total": total_processes, "process_name": process.info['name'],
-                                      "process_info": suspicious_process})
         except (psutil.NoSuchProcess, psutil.AccessDenied, FileNotFoundError) as e:
             if progress_callback:
-                progress_callback({"message": f"Error processing {process.info['name']}: {e}",
-                                  "current": index + 1, "total": total_processes, "process_name": process.info['name']})
+                progress_callback({
+                    "message": f"Error processing {process.info['name']}: {e}",
+                    "current": index + 1, "total": total_processes, "process_name": process.info['name']
+                })
 
         if progress_callback:
             progress_callback({"current": index + 1, "total": total_processes, "process_name": process.info['name']})
+
     if progress_callback:
         progress_callback({"current": total_processes, "total": total_processes})
+    
     return suspicious_processes
 
 def kill_malware_process(pid):
@@ -115,5 +118,5 @@ def monitor_new_processes(duration):
             new_process_details.append(process_info)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-
+    
     return new_process_details
