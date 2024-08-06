@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 from config import load_config
 
-def remove_from_startup(malware_names):
+def remove_from_startup(malware_names, progress_callback=None):
     startup_key_paths = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",
         r"Software\Microsoft\Windows\CurrentVersion\RunOnce",
@@ -22,11 +22,20 @@ def remove_from_startup(malware_names):
                     with winreg.OpenKey(hive, key_path, 0, winreg.KEY_SET_VALUE) as startup_key:
                         try:
                             winreg.DeleteValue(startup_key, malware)
-                            print(f"'{malware}' startup entry removed successfully from {key_path}.")
+                            message = f"'{malware}' startup entry removed successfully from {key_path}."
+                            print(message)
+                            if progress_callback:
+                                progress_callback({"message": message})
                         except FileNotFoundError:
-                            print(f"'{malware}' startup entry not found in {key_path}.")
+                            message = f"'{malware}' startup entry not found in {key_path}."
+                            print(message)
+                            if progress_callback:
+                                progress_callback({"message": message})
                 except Exception as e:
-                    print(f"Error: {e}")
+                    error_message = f"Error: {e}"
+                    print(error_message)
+                    if progress_callback:
+                        progress_callback({"message": error_message})
 
 def delete_registry_keys_associated_with_process(file_path, progress_callback=None):
     registry_paths = [

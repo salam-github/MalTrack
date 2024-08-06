@@ -205,7 +205,7 @@ def kill_selected_process():
                 exe_path_variants = [file_path, file_path.lower(), exe_name, exe_name.lower()]
                 all_variants = name_variants + exe_path_variants
 
-                remove_from_startup(all_variants)
+                remove_from_startup(all_variants, progress_callback)
                 delete_registry_keys_associated_with_process(file_path, progress_callback)
 
                 treeview.delete(selected_item)
