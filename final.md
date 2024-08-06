@@ -66,30 +66,28 @@ How to Run
 
 -   Required Python packages:
 
-    bash
-
-    Copy code
-
-    `pip install psutil requests tqdm tkinter`
+```bash
+    pip install psutil requests tqdm tkinter
+```
 
 ### Running the Program
 
 1.  **Clone the Repository**:
-
-    bash
-
-    Copy code
-
-    `git clone https://github.com/salam-github/MalTrack.git
-    cd MalTrack`
+```bash
+    git clone https://github.com/salam-github/MalTrack.git
+    cd MalTrack
+```
 
 2.  **Run the Script**:
 
-    bash
-
-    Copy code
-
-    `python elevate.py`
+```bash
+    python gui.py
+```
+3. Or use the ready made executable file in the dist folder.
+```bash
+    cd dist
+    gui.exe
+```
 
 3.  **GUI Usage**:
 
