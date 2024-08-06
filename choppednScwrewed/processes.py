@@ -7,9 +7,7 @@ from registry import remove_from_startup, delete_registry_keys_associated_with_p
 from network import identify_attacker_ip
 
 # List of known malware files
-known_malware_files = [
-    "mal-track.exe", "maltrack.exe", "mal-track", "maltrack"
-]
+known_malware_files = ["mal-track.exe", "maltrack.exe", "mal-track", "maltrack"]
 
 def heuristic_check(file_path):
     """Perform basic heuristic checks on the file."""
@@ -98,7 +96,6 @@ def kill_malware_process(pid):
     except Exception as e:
         print(f"Failed to kill malware process: {e}")
         return False
-
 
 def monitor_new_processes(duration):
     """Monitor newly spawned processes for a specified duration."""

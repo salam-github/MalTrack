@@ -44,24 +44,23 @@ def run_in_thread(func, process_name, *args):
 
 def start_malware_scan(scan_type='quick'):
     progress_bar['value'] = 0
-    progress_bar['maximum'] = 100  # This will be updated dynamically
+    progress_bar['maximum'] = 100
     status_label.config(text=f"Starting {scan_type} scan for malware...")
-    treeview.delete(*treeview.get_children())  # Clear previous results
+    treeview.delete(*treeview.get_children())
     global suspicious_processes
-    suspicious_processes = []  # Clear previous results
+    suspicious_processes = []
 
     def progress_callback(data):
         message = data.get("message", "")
         current = data.get("current")
         total = data.get("total")
         process_info = data.get("process_info")
-        
+
         if message:
             if "Detected suspicious process" in message:
                 output_text.insert(tk.END, "\nDetected Suspicious Process:\n", "header")
                 output_text.insert(tk.END, message + "\n", "suspicious")
                 output_text.see(tk.END)
-
                 if process_info:
                     pid = process_info.get('pid', '')
                     name = process_info.get('name', '')
@@ -70,9 +69,6 @@ def start_malware_scan(scan_type='quick'):
                     cmdline = ' '.join(process_info.get('cmdline', []))
                     create_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process_info.get('create_time', 0)))
                     username = process_info.get('username', '')
-
-                    # Print parsed data for debugging
-                    print(f"Parsed data: PID={pid}, Name={name}, File Path={file_path}, Suspicion Score={sus_score}, Command Line={cmdline}, Creation Time={create_time}, Username={username}")
 
                     treeview.insert("", "end", values=(pid, name, file_path, sus_score, cmdline, create_time, username))
             elif "Skipping whitelisted process" in message:
@@ -198,24 +194,13 @@ def kill_selected_process():
 
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
-                # Define the name variants for registry entries
                 name_variants = ["Mal-Track", "maltrack", "maltrack.exe", "mal-track.exe"]
-
-                # Add the file path itself as a variant
                 exe_name = os.path.basename(file_path)
-                exe_path_variants = [
-                    file_path,
-                    file_path.lower(),
-                    exe_name,
-                    exe_name.lower()
-                ]
-
-                # Combine name variants and file path variants
+                exe_path_variants = [file_path, file_path.lower(), exe_name, exe_name.lower()]
                 all_variants = name_variants + exe_path_variants
 
-                # Handle registry keys
                 remove_from_startup(all_variants)
-                delete_registry_keys_associated_with_process()
+                delete_registry_keys_associated_with_process(file_path)
 
                 treeview.delete(selected_item)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")

@@ -18,7 +18,7 @@ def scan_for_malware(progress_callback=None, scan_type='quick'):
                        f"File: {exe_path}, Suspicion Score: {sus_score}%")
         if sus_score > 70:
             if kill_malware_process(pid):
-                remove_from_startup(name)  # Use the correct name for the startup entry
+                remove_from_startup([name])  # Use the correct name for the startup entry
                 delete_registry_keys_associated_with_process(exe_path)
                 results.append(f"Killed malware process: {name} (PID: {pid})")
         else:

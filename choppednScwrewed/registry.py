@@ -28,7 +28,8 @@ def remove_from_startup(malware_names):
                 except Exception as e:
                     print(f"Error: {e}")
 
-def delete_registry_keys_associated_with_process():
+def delete_registry_keys_associated_with_process(file_path):
+    """Delete registry keys associated with a specific file path."""
     registry_paths = [
         r"Software\Microsoft\Windows\CurrentVersion\Run",
         r"Software\Microsoft\Windows\CurrentVersion\RunOnce",
@@ -45,16 +46,19 @@ def delete_registry_keys_associated_with_process():
         for path in registry_paths:
             try:
                 with winreg.OpenKey(hive, path, 0, winreg.KEY_WRITE) as key:
-                    for key_name in winreg.QueryInfoKey(key)[1]:
+                    i = 0
+                    while True:
                         try:
-                            value = winreg.QueryValueEx(key, key_name)[0]
-                            if any(malware in value for malware in ["maltrack", "mal-track", "Mal-Track", "maltrack.exe", "mal-track.exe"]):
-                                winreg.DeleteValue(key, key_name)
-                                print(f"Registry entry '{key_name}' removed from {path}.")
-                        except FileNotFoundError:
-                            print(f"No registry entry for '{key_name}' found in {path}.")
-            except Exception as e:
-                print(f"Error accessing registry path {path}: {e}")
+                            value_name, value_data, _ = winreg.EnumValue(key, i)
+                            if file_path.lower() in value_data.lower():
+                                winreg.DeleteValue(key, value_name)
+                                print(f"Removed {file_path} from startup key: {path}")
+                            else:
+                                i += 1
+                        except OSError:
+                            break
+            except FileNotFoundError:
+                continue
 
 def collect_registry():
     """Collect registry values."""
