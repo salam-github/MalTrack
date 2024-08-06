@@ -192,6 +192,12 @@ def kill_selected_process():
         process_name = process_info[1]
         file_path = process_info[2]
 
+        def progress_callback(data):
+            message = data.get("message", "")
+            if message:
+                output_text.insert(tk.END, message + "\n", "regular")
+                output_text.see(tk.END)
+
         if messagebox.askyesno("Kill Process", f"Are you sure you want to kill process {process_name} (PID: {pid})?"):
             if kill_malware_process(pid):
                 name_variants = ["Mal-Track", "maltrack", "maltrack.exe", "mal-track.exe"]
@@ -200,7 +206,7 @@ def kill_selected_process():
                 all_variants = name_variants + exe_path_variants
 
                 remove_from_startup(all_variants)
-                delete_registry_keys_associated_with_process(file_path)
+                delete_registry_keys_associated_with_process(file_path, progress_callback)
 
                 treeview.delete(selected_item)
                 messagebox.showinfo("Kill Process", f"Process {process_name} (PID: {pid}) killed successfully and associated registry keys deleted.")
