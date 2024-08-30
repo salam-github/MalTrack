@@ -85,7 +85,7 @@ How to Run
 2.  **Run the Script**:
 
 ```bash
-    python gui.py
+    python ./track-gui/gui.py
 ```
 3. Or use the ready made executable file in the dist folder.
 ```bash

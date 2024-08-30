@@ -8,8 +8,9 @@ def identify_attacker_ip(filename):
     filepath = file_location(filename)
     if filepath is None:
         print(f"File {filename} not found.")
-        return
+        return []
 
+    attacker_ips = []
     try:
         with open(filepath, "rb") as f:
             strings = re.findall(b"([\x20-\x7E]{4,})", f.read())
@@ -17,9 +18,13 @@ def identify_attacker_ip(filename):
                 decoded_string = s.decode("utf-8")
                 match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", decoded_string)
                 if match:
-                    print(f"Potential attacker IP: {match.group()}")
+                    ip = match.group()
+                    attacker_ips.append(ip)
+                    print(f"Potential attacker IP: {ip}")
     except OSError as e:
         print(e)
+    
+    return attacker_ips
 
 def file_location(filename):
     try:
@@ -28,7 +33,7 @@ def file_location(filename):
                 return os.path.join(root, filename)
     except Exception as e:
         print(f"Error: {e}")
-    return None  # Return None if the file is not found
+    return None
 
 
 def capture_packets(duration, flt):
